@@ -1,0 +1,70 @@
+#!/usr/bin/php
+<?php
+require('config.php');
+require('HttpJsonClient.php');
+
+$command = isset($argv[1]) ? $argv[1] : null;
+
+switch($command) {
+  case 'list':
+    $dashboards = HttpJsonClient::POST(ES_INSTANCE.'/kibana-int/dashboard/_search?size=1000&query=*');
+    foreach($dashboards['hits']['hits'] as $dashboard) {
+      $dash = $dashboard['_source'];
+      echo $dash['title'].PHP_EOL;
+    }
+    break;
+  case 'delete':
+    if(!isset($argv[2]))
+      error_die('Clone takes 1 parameters, the dashboard to delete',128);
+    $dashboard = HttpJsonClient::GET(ES_INSTANCE.'/kibana-int/dashboard/'.$argv[2]);
+    if(!$dashboard['found'])
+      error_die('Dashboard '.$argv[2].' not found',4);
+    HttpJsonClient::DELETE(ES_INSTANCE.'/kibana-int/dashboard/'.$argv[2]);
+    echo 'Deleted '.$argv[2].PHP_EOL;
+    break;
+  case 'clone':
+    if(!isset($argv[2])||!isset($argv[3]))
+      error_die('Clone takes 2 parameters, the source and the destination index',128);
+    $dashboard = HttpJsonClient::GET(ES_INSTANCE.'/kibana-int/dashboard/'.$argv[2]);
+    if(!$dashboard['found'])
+      error_die('Dashboard '.$argv[2].' not found',4);
+    $dash = $dashboard['_source'];
+    $settings = json_decode($dash['dashboard'],true);
+    $settings['index']['pattern'] = '['.$argv[3].'-]YYYY.MM.DD';
+    $dash['title'] = $argv[3];
+    $settings['title'] = $dash['title'];
+    $dash['dashboard'] = json_encode($settings);
+    //ready
+    HttpJsonClient::PUT(ES_INSTANCE.'/kibana-int/dashboard/'.$argv[3],$dash);
+    echo 'Cloned '.$argv[2].' to '.$argv[3].PHP_EOL;
+    break;
+  case 'list-index':
+    $data = HttpJsonClient::GET(ES_INSTANCE.'/_aliases');
+    ksort($data);
+    $displayed = array();
+    foreach($data as $index => $index_params) {
+      preg_match('/([a-z-_]+)\-([0-9]{4})\.([0-9]{2})\.([0-9]{2})/',$index,$matches);
+      if(count($matches) == 5) {
+        // index !!!
+        list($full,$index,$year,$month,$day) = $matches;
+        if(in_array($index,$displayed))
+          continue;
+        echo $index.PHP_EOL;
+        $displayed[] = $index;
+      }
+    }
+    break;
+  default:
+    error_die('Please specify a command',128);
+}
+
+
+
+function clihr($num) {
+  echo str_repeat('-',$num).PHP_EOL;
+}
+function error_die($message,$status=254) {
+  //return code for hardcore sysadmins ;)
+  echo 'ERROR: '.$message.PHP_EOL;
+  exit($status);
+}

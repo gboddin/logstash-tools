@@ -15,7 +15,7 @@ switch($command) {
     break;
   case 'delete':
     if(!isset($argv[2]))
-      error_die('Clone takes 1 parameters, the dashboard to delete',128);
+      error_die('Delete takes 1 parameters, the dashboard to delete',128);
     $dashboard = HttpJsonClient::GET(ES_INSTANCE.'/kibana-int/dashboard/'.$argv[2]);
     if(!$dashboard['found'])
       error_die('Dashboard '.$argv[2].' not found',4);

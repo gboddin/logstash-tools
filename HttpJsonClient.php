@@ -1,5 +1,9 @@
 <?php
 class HttpJsonClient {
+  static $proxy = null;
+  static function setProxy($url) {
+    self::$proxy = $url;
+  }
   static function GET($url,$body=null) {
     return self::request('GET',$url,$body);
   }
@@ -14,7 +18,11 @@ class HttpJsonClient {
     return self::request('POST',$url,$body);
   }
   static private function request($method,$url,$body) {
-    putenv('http_proxy');
+    //if no proxy, reset, else set
+    if(self::$proxy == null)
+      putenv('http_proxy');
+    else
+      putenv('http_proxy='.self::$proxy);
     if(is_array($body))
       $body = json_encode($body);
     $ch = curl_init();
